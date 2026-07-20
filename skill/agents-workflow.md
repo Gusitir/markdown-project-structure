@@ -30,9 +30,22 @@ tool.
 - **Auditor** — plans, writes task specs with acceptance criteria, and **verifies each
   delivery by re-running the checks itself** before approving.
 
-The roles can be two different agents (e.g. a cheaper model executes, a stronger model
-audits), the same agent wearing two hats, or a human auditing an agent. The separation
-is what keeps quality high: **the auditor never trusts the executor's report.**
+The separation is what keeps quality high: **the auditor never trusts the executor's
+report** — it re-runs the checks and audits the commit, not the working tree.
+
+**Orchestration is the user's choice, per project — the files and rules stay identical:**
+
+- **Executor → Auditor (two agents):** a fast/cheap model executes; a stronger model
+  audits in a *separate* chat that sees only the output. Best for high-stakes or
+  long-lived code — a genuinely independent second pair of eyes.
+- **Auditor / Executor (one agent, two hats):** the same agent plans, executes, then
+  audits its own commit against the criteria. Best for small or fast-moving projects.
+- **Human auditor:** an agent executes; the user audits and gives the GO. Best for
+  sensitive code.
+
+Ask the user which mode they want (or infer from project risk) and record it in
+`AGENTS.md`, so a fresh session knows how the work is orchestrated. The mode can change
+mid-project (start solo, promote to two-agent once the code is load-bearing).
 
 ---
 

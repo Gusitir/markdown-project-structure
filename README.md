@@ -40,9 +40,66 @@ A fresh chat catches up by reading two files: `CURRENT.md` → `APPCORE.md`.
 
 ---
 
+## The executor + auditor duo (the heart of it)
+
+The method is built around **two roles**, and the whole thing works *because* they are
+separated:
+
+- **Executor** — writes the code. Takes **one** task, records **real evidence** (pasted
+  command output), and STOPs.
+- **Auditor** — plans the work, writes task specs with **acceptance criteria**, and
+  **re-verifies every delivery itself** — re-running the greps / compiles / tests,
+  auditing the **commit** (not the half-edited working tree) — before giving a verdict:
+  `PASS` / `PASS WITH FIX` / `FAIL`. **It never trusts the executor's report.**
+
+In the origin project this split caught a report that claimed *"verified"* on a check
+that was actually **failing** — because the auditor re-ran it instead of believing it.
+That single discipline is most of the value.
+
+### You choose the orchestration (per project)
+
+The roles are a *contract*, not a fixed setup. Run them whichever way fits the project —
+the files and rules stay identical:
+
+| Mode | How it runs | Best when |
+|---|---|---|
+| **Executor → Auditor** (two agents) | A fast/cheap model executes; a stronger model audits in a **separate** chat that only sees the output, not the executor's reasoning | High-stakes code; you want a genuinely independent second pair of eyes; long projects |
+| **Auditor / Executor** (one agent, two hats) | The **same** agent plans, executes, then audits its own commit against the criteria | Small or fast-moving projects; when one strong model is enough; solo prototyping |
+| **Human auditor** | An agent executes; **you** audit and give the GO | Sensitive code, or you want final control over every merge |
+
+Pick based on the project's risk and your budget. You can even switch mid-project
+(start solo with *Auditor/Executor*, promote to *Executor → Auditor* once it's
+load-bearing). `AGENTS.md` records which mode is active so a fresh session knows.
+
+---
+
 ## Install
 
-### Quick (script)
+### Any agent — generic copy/paste (works everywhere)
+
+The most portable install: drop the workflow into a root `AGENTS.md` — the
+[agents.md](https://agents.md) standard, read by Claude Code, Cursor, OpenCode, Zed,
+Aider and more. No clone, no tooling.
+
+```bash
+# Linux / macOS — add the workflow to your project's AGENTS.md
+curl -fsSL https://raw.githubusercontent.com/Gusitir/markdown-project-structure/main/skill/agents-workflow.md >> AGENTS.md
+```
+```powershell
+# Windows PowerShell
+(Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Gusitir/markdown-project-structure/main/skill/agents-workflow.md).Content | Add-Content AGENTS.md
+```
+
+**No shell at all?** Open [`skill/agents-workflow.md`](skill/agents-workflow.md), copy
+the whole file, and paste it into your project's `AGENTS.md` — or straight into your
+agent's chat. That's the entire skill.
+
+> The one-liner appends, so re-running it duplicates the block. For clean *updates* use
+> the native installer below (it replaces in place between markers).
+
+### Native per-agent (script)
+
+Gives each agent its idiomatic home (Claude skill, Cursor rule, …):
 
 ```bash
 # from a clone of this repo
