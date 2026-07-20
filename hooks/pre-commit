@@ -1,0 +1,49 @@
+#!/bin/sh
+# agents-workflow pre-commit hook.
+# Enforces the rules that shouldn't depend on anyone remembering them:
+#   - blocks committing secrets / real .env files            (hard rule 6)
+#   - warns when .agents/CURRENT.md bloats past ~5 KB         (compaction signal)
+#
+# Install:  cp hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# Bypass (rare, intentional):  git commit --no-verify
+set -eu
+
+fail=0
+staged=$(git diff --cached --name-only --diff-filter=AM)
+
+# 1) Never commit a real .env (allow the valueless example/sample/template variants).
+for f in $staged; do
+  case "$(basename "$f")" in
+    .env.example|.env.sample|.env.template|.env.dist) : ;;
+    .env|.env.*)
+      echo "BLOCK: '$f' looks like a real .env — never commit secrets (rule 6)."
+      fail=1 ;;
+  esac
+done
+
+# 2) Block obvious secret material in the staged (added) lines.
+patterns='AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|tgp_v1_[A-Za-z0-9_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY'
+# `--` ends option parsing so a pattern starting with '-' is never read as a flag.
+hits=$(git diff --cached | grep -E '^\+' | grep -Ev '^\+\+\+' | grep -EI -- "$patterns" || true)
+if [ -n "$hits" ]; then
+  echo "BLOCK: possible secret in staged changes (rule 6):"
+  echo "$hits" | sed 's/^/  /'
+  fail=1
+fi
+
+# 3) Warn (do not block) when a staged CURRENT.md passes ~5 KB — time to compact.
+for f in $staged; do
+  case "$f" in
+    *.agents/CURRENT.md|.agents/CURRENT.md)
+      size=$(wc -c < "$f" 2>/dev/null || echo 0)
+      if [ "$size" -gt 5120 ]; then
+        echo "WARN: $f is ${size} bytes (>5 KB). Compaction signal — the history is in git."
+      fi ;;
+  esac
+done
+
+if [ "$fail" -ne 0 ]; then
+  echo "Commit blocked. Fix the above, or bypass intentionally with: git commit --no-verify"
+  exit 1
+fi
+exit 0

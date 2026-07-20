@@ -71,6 +71,41 @@ Pick based on the project's risk and your budget. You can even switch mid-projec
 (start solo with *Auditor/Executor*, promote to *Executor → Auditor* once it's
 load-bearing). `AGENTS.md` records which mode is active so a fresh session knows.
 
+### The loop, as a state machine
+
+Every session — new chat or a different model — re-enters the same cycle. Nothing
+depends on remembering the last conversation; the files carry it.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Read: new chat or model switch
+    Read: Read CURRENT.md then APPCORE.md
+    Read --> Executing: pick the NEXT STEP task
+    Executing: Execute one task
+    Executing --> Stop: commit T-NN plus real evidence
+    Stop --> Auditing: executor stops
+    Auditing: Auditor re-runs the checks
+    Auditing --> Executing: FAIL or PASS WITH FIX
+    Auditing --> NextTask: PASS
+    NextTask --> Executing: more tasks this milestone
+    NextTask --> Compact: milestone done
+    Compact: Compact CURRENT, archive plan, reindex APPCORE
+    Compact --> [*]
+```
+
+---
+
+## When to use it (and when it's overkill)
+
+Use it when the project is **multi-session, multi-file, or hand-crossed between agents
+or models** — anything you'll return to and can't hold in one context window. That's
+exactly where projects silently break: the new session doesn't know the rules,
+re-derives the architecture, and reintroduces a bug you already fixed.
+
+Skip it — or use a stripped two-file version (`CURRENT.md` + `AGENTS.md`) — for
+throwaway prototypes, a single-file script, or a one-sitting task. The ceremony only
+pays off across sessions. **Start light; add files as the project earns them.**
+
 ---
 
 ## Install
@@ -147,6 +182,21 @@ It will create the folder from the [templates](templates/.agents), personalized 
 project, and from then on maintain state there. Bootstrap templates you can also copy by
 hand live in [`templates/.agents/`](templates/.agents).
 
+**See it in action:** [`examples/todo-api/.agents/`](examples/todo-api/.agents) is a real
+`.agents/` folder caught mid-project — a bug flows from a test failure, through triage,
+to a root-cause fix, to a one-line rule. Point any agent at it and ask *"what's the exact
+next step and why?"* — it'll answer correctly without you explaining a thing. That's a
+project resuming itself. ([walkthrough](examples/README.md))
+
+**Optional enforcement:** [`hooks/pre-commit`](hooks/pre-commit) blocks committed secrets
+and warns when `CURRENT.md` bloats past the compaction threshold — so the rules hold even
+when nobody's watching. ([install](hooks/README.md))
+
+**Plays well with native memory:** this complements your tool's own memory (`CLAUDE.md`,
+Cursor rules, …) — those hold *your* preferences; `.agents/` holds the *project's* state
+and travels with the repo. If your tool auto-loads a root instructions file, add one
+line: *"At session start, read `.agents/CURRENT.md` then `.agents/APPCORE.md`."*
+
 ---
 
 ## What makes it work (the non-obvious parts)
@@ -171,6 +221,8 @@ each file), and the hard rules: [`skill/agents-workflow.md`](skill/agents-workfl
 ```
 skill/agents-workflow.md   # the canonical skill (single source of truth)
 templates/.agents/         # starter files the workflow creates
+examples/todo-api/.agents/ # a real, filled-in .agents/ caught mid-project
+hooks/pre-commit           # optional: block secrets, warn on CURRENT.md bloat
 install.sh · install.ps1   # per-agent installers
 ```
 

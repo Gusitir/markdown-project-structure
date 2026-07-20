@@ -24,6 +24,19 @@ Any agent that can read/write files and run shell commands can pick up exactly w
 the last one left off — including a brand-new chat, a different model, or a different
 tool.
 
+## When to use this (and when it's overkill)
+
+Honest tools say when they don't fit. Use it when the project is **multi-session,
+multi-file, or hand-crossed between agents/models** — anything you'll come back to and
+can't hold in one head or one context window. That's where a project silently breaks:
+the new session doesn't know the rules, re-derives the architecture, and reintroduces a
+bug you already fixed.
+
+Skip it (or use a stripped 2-file version — just `CURRENT.md` + `AGENTS.md`) for
+throwaway prototypes, a single-file script, or a one-sitting task. The ceremony only
+pays off across sessions; below that it's pure overhead. Start light, add files as the
+project earns them.
+
 ## The two roles
 
 - **Executor** — writes code. Does one task, records evidence, stops.
@@ -100,6 +113,33 @@ project's `.agents/AGENTS.md`.
 
 ---
 
+## Token discipline (this is how the method stays cheap)
+
+The whole point is to spend few tokens per session by **not** carrying a giant chat.
+Keep it that way:
+
+- **Read only what you need, in order:** `CURRENT.md` → `APPCORE.md` at session start.
+  Do NOT re-read the whole `PLAN.md`, `CONTEXT.md`, or source tree every turn.
+- **`APPCORE.md` is an index, not a substitute for reading code.** Use it to find *which*
+  file, then open *only that file* (or grep it). It exists so you don't fan out across
+  the repo blindly.
+- **Milestone plans are loaded on demand.** Read `PLAN_<milestone>.md` when working that
+  cycle; ignore archived plans unless chasing history.
+- **Compaction is a token optimization, not just tidiness.** Every future session pays
+  the size of `CURRENT.md`. A 4 KB `CURRENT.md` read once beats a 40 KB one read every
+  session — that's the recurring cost you're cutting.
+- **Evidence is terse:** paste the *relevant lines* of command output, not entire logs.
+- **Don't restate context that's already in a file.** Point to it (`see APPCORE.md`)
+  instead of re-explaining.
+
+The trade-off to know: file-based memory is on the **cheap** end of the spectrum.
+Reflection-heavy loops and multi-agent debate spend more tokens to internalize more
+reasoning — the opposite bet. You can combine them, but you don't *need* the expensive
+machinery to get durable, resumable projects; this gets you there for the price of a
+couple of small file reads.
+
+---
+
 ## The hard rules (universal — copy these verbatim into `AGENTS.md`)
 
 These apply to any project. Every one of them was written after an incident where its
@@ -148,6 +188,18 @@ to teach an agent is with the scar that produced the rule. Keep a short list in 
 
 The pattern: **an incident → a confirmed root cause → a one-line rule in `AGENTS.md`.**
 Over a project's life this list becomes the most valuable file in the repo.
+
+---
+
+## Plays well with your tool's native memory
+
+This **complements**, not replaces, whatever memory your agent already has (Claude
+Code's `CLAUDE.md`, Cursor rules, a tool's built-in memory). Native memory holds *your*
+standing preferences; the `.agents/` folder holds the *project's* evolving state and
+travels with the repo — so it survives a tool switch, a teammate's clone, and a
+model change. If your tool auto-loads a root instructions file, add one line to it:
+"At session start, read `.agents/CURRENT.md` then `.agents/APPCORE.md`." That single
+pointer wires the whole system into your existing setup.
 
 ---
 
